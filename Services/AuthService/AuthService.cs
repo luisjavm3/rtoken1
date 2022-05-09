@@ -11,11 +11,14 @@ namespace rtoken1.Services.AuthService
     {
         private readonly DataContext _context;
         private readonly IMapper _mapper;
-        public AuthService(DataContext context, IMapper mapper)
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        public AuthService(DataContext context, IMapper mapper, IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
             _mapper = mapper;
+            _httpContextAccessor = httpContextAccessor;
         }
+
         public async Task<ServiceResponse<GetUserDto>> Register(AuthRequest request)
         {
             var response = new ServiceResponse<GetUserDto>();
@@ -49,5 +52,31 @@ namespace rtoken1.Services.AuthService
 
             return response;
         }
+
+        public async Task<ServiceResponse<LoginResponse>> Login(AuthRequest request)
+        {
+            var response = new ServiceResponse<LoginResponse>();
+
+            try
+            {
+                var user = await _context.Users
+                            .FirstOrDefaultAsync(u => u.Username.ToLower().Equals(request.Username.ToLower()));
+
+                if (user == null || !PasswordUtils.matchPasswords(request.Password, user.PasswordHash, user.PasswordSalt))
+                    throw new Exception("Wrong credentials.");
+                
+
+
+
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Message = ex.Message;
+            }
+
+            return response;
+        }
+
     }
 }

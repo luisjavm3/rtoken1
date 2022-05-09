@@ -7,5 +7,6 @@ namespace rtoken1.Services.AuthService
     public interface IAuthService
     {
         Task<ServiceResponse<GetUserDto>> Register(AuthRequest request);
+        Task<ServiceResponse<LoginResponse>> Login(AuthRequest request);
     }
 }

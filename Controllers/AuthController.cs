@@ -16,10 +16,21 @@ namespace rtoken1.Controllers
             _authService = authService;
         }
 
-        [HttpPost]
+        [HttpPost("Register")]
         public async Task<ActionResult<ServiceResponse<GetUserDto>>> Register(AuthRequest request)
         {
             var response = await _authService.Register(request);
+
+            if (!response.Success)
+                return BadRequest(response);
+
+            return Ok(response);
+        }
+
+        [HttpPost("Login")]
+        public async Task<ActionResult<ServiceResponse<LoginResponse>>> Login(AuthRequest request)
+        {
+            var response = await _authService.Login(request);
 
             if (!response.Success)
                 return BadRequest(response);

@@ -6,7 +6,7 @@ namespace rtoken1.Model
     {
         public int Id { get; set; }
         public string Username { get; set; }
-        public Role Role { get; set; }
+        public Role Role { get; set; } = Role.User;
         public byte[] PasswordHash { get; set; }
         public byte[] PasswordSalt { get; set; }
         [JsonIgnore]

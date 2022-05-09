@@ -1,3 +1,4 @@
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using rtoken1.Dtos.Auth;
 using rtoken1.Dtos.User;
@@ -9,9 +10,11 @@ namespace rtoken1.Services.AuthService
     public class AuthService : IAuthService
     {
         private readonly DataContext _context;
-        public AuthService(DataContext context)
+        private readonly IMapper _mapper;
+        public AuthService(DataContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
         public async Task<ServiceResponse<GetUserDto>> Register(AuthRequest request)
         {
@@ -36,7 +39,7 @@ namespace rtoken1.Services.AuthService
                 await _context.Users.AddAsync(user);
                 await _context.SaveChangesAsync();
 
-                // response.Data = 
+                response.Data = _mapper.Map<GetUserDto>(user);
             }
             catch (Exception ex)
             {

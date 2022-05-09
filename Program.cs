@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using rtoken1.Services.AuthService;
 using rtoken1.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,6 +7,10 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddDbContext<DataContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

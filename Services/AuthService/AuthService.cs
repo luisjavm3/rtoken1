@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using rtoken1.Dtos.Auth;
@@ -12,11 +14,13 @@ namespace rtoken1.Services.AuthService
         private readonly DataContext _context;
         private readonly IMapper _mapper;
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public AuthService(DataContext context, IMapper mapper, IHttpContextAccessor httpContextAccessor)
+        private readonly IJwtUtils _jwtUtils;
+        public AuthService(DataContext context, IMapper mapper, IHttpContextAccessor httpContextAccessor, IJwtUtils jwtUtils)
         {
             _context = context;
             _mapper = mapper;
             _httpContextAccessor = httpContextAccessor;
+            _jwtUtils = jwtUtils;
         }
 
         public async Task<ServiceResponse<GetUserDto>> Register(AuthRequest request)
@@ -60,22 +64,62 @@ namespace rtoken1.Services.AuthService
             try
             {
                 var user = await _context.Users
+                            .Include(u => u.RTokens)
                             .FirstOrDefaultAsync(u => u.Username.ToLower().Equals(request.Username.ToLower()));
 
                 if (user == null || !PasswordUtils.matchPasswords(request.Password, user.PasswordHash, user.PasswordSalt))
                     throw new Exception("Wrong credentials.");
-                
 
+                // revokes all user's refresh tokens due new login process.
+                foreach (var t in user.RTokens)
+                {
+                    t.RevokedAt ??= DateTime.Now;
+                    t.ReasonRevoked ??= "New login process";
 
+                    // Removes every expired refresh token
+                    if (t.IsExpired)
+                        _context.RefreshTokens.Remove(t);
+                }
 
+                await _context.SaveChangesAsync();
+
+                // Generates a new, unique refresh token and stores it in database.
+                var rToken = await _jwtUtils.genRToken(user, getClientIp());
+                await _context.RefreshTokens.AddAsync(rToken);
+                await _context.SaveChangesAsync();
+
+                // Generates a new, signing JWT access token.
+                var accessToken = _jwtUtils.genAccessToken(user.Id);
+
+                var loginResponse = new LoginResponse
+                {
+                    Id = user.Id,
+                    Username = user.Username,
+                    Role = user.Role,
+                    AccessToken = accessToken,
+                    RToken = rToken.Value
+                };
+
+                response.Data = loginResponse;
             }
             catch (Exception ex)
             {
                 response.Success = false;
-                response.Message = ex.Message;
+                response.Message = ex.Message + ex.StackTrace;
             }
 
             return response;
+        }
+
+        private string getClientIp()
+        {
+            bool ipInRequest = _httpContextAccessor.HttpContext.Request.Headers.ContainsKey("X-Forwarded-For");
+
+            return ipInRequest
+            ?
+                _httpContextAccessor.HttpContext.Request.Headers["X-Forwarded-For"]
+            :
+            _httpContextAccessor.HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString();
         }
 
     }

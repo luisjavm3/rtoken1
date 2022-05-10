@@ -11,9 +11,11 @@ namespace rtoken1.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
-        public AuthController(IAuthService authService)
+        private readonly IConfiguration _configuration;
+        public AuthController(IAuthService authService, IConfiguration configuration)
         {
             _authService = authService;
+            _configuration = configuration;
         }
 
         [HttpPost("Register")]
@@ -35,7 +37,20 @@ namespace rtoken1.Controllers
             if (!response.Success)
                 return BadRequest(response);
 
+            setRTokenCookie(response.Data.RToken);
+
             return Ok(response);
+        }
+
+        private void setRTokenCookie(string refreshToken)
+        {
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Expires = DateTime.Now.AddDays(int.Parse(_configuration.GetSection("AppSettings:RTokenLifetime").Value))
+            };
+
+            Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
         }
     }
 }

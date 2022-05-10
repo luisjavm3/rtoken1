@@ -42,6 +42,20 @@ namespace rtoken1.Controllers
             return Ok(response);
         }
 
+        [HttpPost("RefreshToken")]
+        public async Task<ActionResult<ServiceResponse<LoginResponse>>> RefreshToken(AuthRequest request)
+        {
+            var rToken = Request.Cookies["refreshToken"];
+            var response = await _authService.RefreshToken(rToken);
+
+            if (!response.Success)
+                return BadRequest(response);
+
+            setRTokenCookie(response.Data.RToken);
+
+            return Ok(response);
+        }
+
         private void setRTokenCookie(string refreshToken)
         {
             var cookieOptions = new CookieOptions

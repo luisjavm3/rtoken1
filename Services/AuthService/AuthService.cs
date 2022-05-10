@@ -75,6 +75,7 @@ namespace rtoken1.Services.AuthService
                 {
                     t.RevokedAt ??= DateTime.Now;
                     t.ReasonRevoked ??= "New login process";
+                    t.RevokedByIp = getClientIp();
 
                     // Removes every expired refresh token
                     if (t.IsExpired)
@@ -111,6 +112,74 @@ namespace rtoken1.Services.AuthService
             return response;
         }
 
+        public async Task<ServiceResponse<LoginResponse>> RefreshToken(string cookieRToken)
+        {
+            var response = new ServiceResponse<LoginResponse>();
+
+            try
+            {
+                var rToken = await _context.RefreshTokens
+                                .Include(t => t.User)
+                                .FirstOrDefaultAsync(t => t.Value.Equals(cookieRToken));
+
+                if (rToken == null)
+                    throw new Exception("Invalid refresh token.");
+
+                if (rToken.IsExpired)
+                {
+                    _context.RefreshTokens.Remove(rToken);
+                    await _context.SaveChangesAsync();
+
+                    throw new Exception("Refresh token expired.");
+                }
+
+                // Revoves all refresh tokens if any revoked refresh token is used to generate a new one.
+                if (rToken.IsRevoked)
+                {
+                    var userRTokens = await _context.RefreshTokens
+                                        .Where(t => t.User.Id == rToken.User.Id).ToListAsync();
+
+                    foreach (var t in userRTokens)
+                    {
+                        t.RevokedAt ??= DateTime.Now;
+                        t.ReasonRevoked ??= "Possible identity theft";
+                        t.RevokedByIp ??= getClientIp();
+                    }
+
+                    await _context.SaveChangesAsync();
+
+                    throw new Exception("Refresh token revoked.");
+                }
+
+                // Rotate refresh tokens
+                var newRToken = await _jwtUtils.genRToken(rToken.User, getClientIp(), rToken.FirstSessionToken);
+                await _context.RefreshTokens.AddAsync(newRToken);
+                rToken.RevokedAt = DateTime.Now;
+                rToken.ReasonRevoked = "Rotated by new refresh token";
+                rToken.RevokedByIp = getClientIp();
+                await _context.SaveChangesAsync();
+
+                // Prepares LoginResponse object
+                var LoginResponse = new LoginResponse
+                {
+                    Id = rToken.User.Id,
+                    Username = rToken.User.Username,
+                    Role = rToken.User.Role,
+                    AccessToken = _jwtUtils.genAccessToken(rToken.User.Id),
+                    RToken = newRToken.Value
+                };
+
+                response.Data = LoginResponse;
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Message = ex.Message;
+            }
+
+            return response;
+        }
+
         private string getClientIp()
         {
             bool ipInRequest = _httpContextAccessor.HttpContext.Request.Headers.ContainsKey("X-Forwarded-For");
@@ -121,6 +190,7 @@ namespace rtoken1.Services.AuthService
             :
             _httpContextAccessor.HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString();
         }
+
 
     }
 }

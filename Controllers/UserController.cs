@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using rtoken1.Dtos.User;
 using rtoken1.Model;
@@ -5,6 +6,7 @@ using rtoken1.Services.UserService;
 
 namespace rtoken1.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("users")]
     public class UserController : ControllerBase

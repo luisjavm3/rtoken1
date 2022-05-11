@@ -11,7 +11,7 @@ namespace rtoken1.Authorization
     {
         private readonly IList<Role> _roles;
 
-        public Authorize(IList<Role> roles)
+        public Authorize(params Role[] roles)
         {
             _roles = roles ?? new Role[] { };
         }

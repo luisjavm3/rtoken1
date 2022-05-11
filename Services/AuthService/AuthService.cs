@@ -180,6 +180,46 @@ namespace rtoken1.Services.AuthService
             return response;
         }
 
+        public async Task<ServiceResponse<string>> RevokeToken(string cookieRToken)
+        {
+            var response = new ServiceResponse<string>();
+
+            try
+            {
+                var rToken = await _context.RefreshTokens
+                                .FirstOrDefaultAsync(t => t.Value.Equals(cookieRToken));
+
+                if (rToken == null)
+                    throw new Exception("Token does not exist.");
+
+                if (rToken.IsRevoked)
+                    throw new Exception("Token already revoked.");
+
+                if (rToken.IsExpired)
+                {
+                    _context.RefreshTokens.Remove(rToken);
+                    await _context.SaveChangesAsync();
+
+                    throw new Exception("Token expired.");
+                }
+
+                // Revokes rToken
+                rToken.RevokedAt = DateTime.Now;
+                rToken.RevokedByIp = getClientIp();
+                rToken.ReasonRevoked = "revoked by client at revokeroken route.";
+                await _context.SaveChangesAsync();
+
+                response.Data = $"{rToken.Value} revoked";
+            }
+            catch (Exception ex)
+            {
+                response.Success = false;
+                response.Message = ex.Message;
+            }
+
+            return response;
+        }
+
         private string getClientIp()
         {
             bool ipInRequest = _httpContextAccessor.HttpContext.Request.Headers.ContainsKey("X-Forwarded-For");
@@ -190,7 +230,5 @@ namespace rtoken1.Services.AuthService
             :
             _httpContextAccessor.HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString();
         }
-
-
     }
 }

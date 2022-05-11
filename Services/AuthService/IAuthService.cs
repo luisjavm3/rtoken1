@@ -9,5 +9,6 @@ namespace rtoken1.Services.AuthService
         Task<ServiceResponse<GetUserDto>> Register(AuthRequest request);
         Task<ServiceResponse<LoginResponse>> Login(AuthRequest request);
         Task<ServiceResponse<LoginResponse>> RefreshToken(string rToken);
+        Task<ServiceResponse<string>> RevokeToken(string rToken);
     }
 }
